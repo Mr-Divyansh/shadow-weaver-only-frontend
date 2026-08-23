@@ -21,9 +21,15 @@ export function Header() {
   const mode = state.mode;
   const connection = state.connection;
 
+  const demoModeOn = state.agents.red.status === "connected" && state.agents.blue.status === "connected";
+
   function doToggle() {
     const next = mode === "autonomous" ? ("manual" as const) : ("autonomous" as const);
     provider.setMode(next);
+  }
+
+  function toggleDemoMode() {
+    store.toggleDemoMode();
   }
 
   const systemHealthy = state.overview.activeThreats === 0;
@@ -88,6 +94,15 @@ export function Header() {
         >
           <span className={`dot ${mode === "autonomous" ? "dot-info" : "dot-warning"}`} aria-hidden="true" />
           {mode === "autonomous" ? "AUTO" : "MANUAL"}
+        </button>
+        <button
+          className={`btn ${demoModeOn ? "btn-secondary" : "btn-ghost"} demo-mode-toggle`}
+          onClick={toggleDemoMode}
+          aria-pressed={demoModeOn}
+          title={demoModeOn ? "Disable demo mode (resets agents to Not Connected)" : "Enable demo mode (simulates Red/Blue Team connection)"}
+        >
+          <span className={`dot ${demoModeOn ? "dot-success dot-live" : "dot-offline"}`} aria-hidden="true" />
+          {demoModeOn ? "DEMO MODE ON" : "DEMO MODE"}
         </button>
         <button className="btn btn-ghost" aria-label="Settings" onClick={() => store.openSettings()}>
           ⚙

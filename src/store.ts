@@ -105,6 +105,7 @@ type Listener = () => void;
 class Store {
   private state: AppState = initialState;
   private listeners = new Set<Listener>();
+  private demoSimInterval: ReturnType<typeof setTimeout> | null = null;
 
   getState(): AppState {
     return this.state;
@@ -206,6 +207,50 @@ class Store {
         },
       },
     });
+  }
+
+  // ── Demo Mode: instantly mark both agents "connected" client-side,
+  // no API keys / network calls needed. Purely for presentations. ──────────
+  enableDemoMode() {
+    (["red", "blue"] as const).forEach((team) => this.setAgentStatus(team, "connected"));
+    this.startDemoSimulation();
+  }
+
+  disableDemoMode() {
+    (["red", "blue"] as const).forEach((team) => this.setAgentStatus(team, "not_connected"));
+    this.stopDemoSimulation();
+  }
+
+  toggleDemoMode() {
+    const isOn = this.state.agents.red.status === "connected" && this.state.agents.blue.status === "connected";
+    isOn ? this.disableDemoMode() : this.enableDemoMode();
+  }
+
+  // Fires every 4-5s while demo mode is on, nudging threat counters so the
+  // dashboard looks alive on stage. Deliberately does NOT touch networkTraffic
+  // or appendTraffic — simulation.ts already drives a live 1s traffic stream,
+  // and writing to the same fields here would fight it and flicker on screen.
+  private startDemoSimulation() {
+    if (this.demoSimInterval) return; // already running
+    const tick = () => {
+      const o = this.state.overview;
+      const detected = o.threatsDetected + (Math.random() < 0.6 ? 1 : 0);
+      const contained = o.threatsContained + (Math.random() < 0.45 ? 1 : 0);
+      this.setOverview({
+        threatsDetected: detected,
+        threatsContained: Math.min(contained, detected),
+        activeThreats: Math.max(0, detected - contained),
+      });
+      this.demoSimInterval = setTimeout(tick, 4000 + Math.random() * 1000);
+    };
+    this.demoSimInterval = setTimeout(tick, 4000 + Math.random() * 1000);
+  }
+
+  private stopDemoSimulation() {
+    if (this.demoSimInterval) {
+      clearTimeout(this.demoSimInterval);
+      this.demoSimInterval = null;
+    }
   }
 
   openSettings(tab: AppState["settings"]["tab"] = "agents") {
