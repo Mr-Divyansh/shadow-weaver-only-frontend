@@ -44,6 +44,10 @@ function event(
 class MockProvider implements DataProvider {
   private callbacks: DataProviderCallbacks | null = null;
   private timers: ReturnType<typeof setTimeout>[] = [];
+  // Simulation-only timeouts (phase transitions, honeypot commands, etc).
+  // Tracked separately from `timers` so stopping/restarting a simulation
+  // never touches the live connection's traffic/health intervals.
+  private simTimers: ReturnType<typeof setTimeout>[] = [];
   private healthInterval: ReturnType<typeof setInterval> | null = null;
   private trafficInterval: ReturnType<typeof setInterval> | null = null;
   // Random-walk state so the traffic line flows smoothly instead of jumping
@@ -75,6 +79,16 @@ class MockProvider implements DataProvider {
   private timeout(fn: () => void, ms: number) {
     const t = setTimeout(fn, ms);
     this.timers.push(t);
+  }
+
+  private simTimeout(fn: () => void, ms: number) {
+    const t = setTimeout(fn, ms);
+    this.simTimers.push(t);
+  }
+
+  private clearSimTimers() {
+    this.simTimers.forEach((t) => clearTimeout(t));
+    this.simTimers = [];
   }
 
   connect(callbacks: DataProviderCallbacks) {
@@ -132,6 +146,10 @@ class MockProvider implements DataProvider {
   }
 
   startSimulation() {
+    // Clear any leftover timers from a previous run (e.g. Kill Switch was
+    // hit mid-simulation) so stale callbacks can never fire into a new run.
+    this.clearSimTimers();
+
     const mode = store.getState().mode;
     this.emit(event("simulation_started", "info", { message: "Controlled attack simulation started (simulated demo data)" }));
 
@@ -140,12 +158,12 @@ class MockProvider implements DataProvider {
     this.emit(event("reconnaissance_started", "info", { source: RED_IP, target: BLUE_IP, message: "Reconnaissance started" }));
     this.emit(event("service_discovered", "info", { source: RED_IP, target: BLUE_IP, message: "Open ports identified on target" }));
 
-    this.timeout(() => {
+    this.simTimeout(() => {
       this.emit(event("suspicious_activity", "warning", { source: RED_IP, target: BLUE_IP, message: "Port scanning detected on Blue Team environment" }));
     }, 1200);
 
     // Phase 2 — Attack active
-    this.timeout(() => {
+    this.simTimeout(() => {
       this.setPhase("active");
       this.emit(event("attack_started", "high", { source: RED_IP, target: BLUE_IP, message: "Credential brute-force attack in progress" }));
       store.setTopology({ attackActive: true, attackTarget: "blue_team", reconActive: false });
@@ -153,14 +171,14 @@ class MockProvider implements DataProvider {
     }, 2400);
 
     // Phase 3 — Detection
-    this.timeout(() => {
+    this.simTimeout(() => {
       this.setPhase("detection");
       this.emit(event("threat_detected", "high", { source: RED_IP, target: BLUE_IP, message: "Suspicious authentication activity confirmed" }));
       store.setOverview({ threatsDetected: store.getState().overview.threatsDetected + 1 });
     }, 4000);
 
     // Phase 4 — Honeypot capture
-    this.timeout(() => {
+    this.simTimeout(() => {
       this.emit(event("honeypot_session_captured", "critical", {
         source: RED_IP,
         target: HONEYPOT_IP,
@@ -183,14 +201,14 @@ class MockProvider implements DataProvider {
 
     // Honeypot command stream
     CAPTURED_COMMANDS.forEach((cmd, i) => {
-      this.timeout(() => {
+      this.simTimeout(() => {
         this.emit(event("honeypot_command", "info", { command: cmd, sessionId: "CAPTURED", message: "Attacker command captured" }));
         store.appendHoneypotCommand(cmd);
       }, 6200 + i * 900);
     });
 
     // Phase 5 — Containment (depends on mode)
-    this.timeout(() => {
+    this.simTimeout(() => {
       if (mode === "manual") {
         this.emit(event("containment_recommended", "high", {
           source: RED_IP,
@@ -212,7 +230,7 @@ class MockProvider implements DataProvider {
   private beginContainment() {
     this.setPhase("containment");
     this.emit(event("containment_in_progress", "warning", { message: "Isolating attacking source and rolling back session" }));
-    this.timeout(() => {
+    this.simTimeout(() => {
       this.setPhase("completed");
       store.setTopology({ attackActive: false, attackTarget: null });
       store.setOverview({
@@ -239,6 +257,9 @@ class MockProvider implements DataProvider {
   }
 
   stopSimulation() {
+    // Cancel every pending phase/honeypot timer from the run being killed —
+    // otherwise stale callbacks fire later and corrupt whatever runs next.
+    this.clearSimTimers();
     store.setTopology({ attackActive: false, attackTarget: null, reconActive: false });
     store.setSimulation({ phase: "ready", running: false, stopped: true });
     store.setApproval(null);

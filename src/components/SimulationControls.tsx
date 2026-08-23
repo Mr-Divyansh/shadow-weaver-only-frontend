@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAppState } from "../store";
+import { useAppState, store } from "../store";
 import { provider } from "../simulation";
 import { PHASE_STEPS } from "../types";
 
@@ -13,8 +13,14 @@ export function SimulationControls() {
 
   const currentIdx = PHASE_STEPS.findIndex((s) => s.id === sim.phase);
   const running = sim.running;
+  const completed = sim.phase === "completed";
 
   function start() {
+    if (completed) {
+      // Clear the previous run's data so the new run starts from a clean
+      // slate instead of stacking on top of old threat/honeypot state.
+      store.resetSimulation();
+    }
     provider.startSimulation();
   }
 
@@ -50,9 +56,9 @@ export function SimulationControls() {
         <button
           className="btn btn-primary"
           onClick={start}
-          disabled={!connected || running || sim.phase === "completed"}
+          disabled={!connected || running}
         >
-          {sim.phase === "completed" ? "COMPLETED" : running ? "RUNNING..." : "START SIMULATION"}
+          {running ? "RUNNING..." : completed ? "RUN AGAIN" : "START SIMULATION"}
         </button>
 
         <button
