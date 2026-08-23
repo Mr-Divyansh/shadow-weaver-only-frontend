@@ -39,10 +39,10 @@ export function ThreatFeed() {
             <span>No events yet</span>
           </div>
         )}
-        {filtered.map((e, i) => {
+        {filtered.map((e) => {
           const meta = SEVERITY_META[e.severity];
           return (
-            <div key={i} className="feed-event">
+            <div key={e.id ?? `${e.timestamp}-${e.type}`} className="feed-event">
               <span className="feed-time">{e.timestamp}</span>
               <span className={`badge ${meta.className}`}>{meta.label}</span>
               <span className="feed-message">

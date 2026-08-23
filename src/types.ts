@@ -88,6 +88,7 @@ export type EventType =
   | "honeypot_offline";
 
 export interface ShadowEvent {
+  id?: number;
   type: EventType;
   severity: Severity;
   source?: string;

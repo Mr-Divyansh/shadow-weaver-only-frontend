@@ -58,7 +58,7 @@ export function HoneypotPanel() {
             </div>
           )}
           {h.commands.map((cmd, i) => (
-            <div key={i} className="terminal-line">
+            <div key={`${i}-${cmd}`} className="terminal-line">
               <span className="terminal-prompt">$</span>
               <span className="terminal-cmd">{cmd}</span>
             </div>

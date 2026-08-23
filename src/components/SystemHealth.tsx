@@ -13,6 +13,12 @@ function meterClass(health: { cpu: number; memory: number; status: string }) {
   return "meter-healthy";
 }
 
+function statusText(status: string) {
+  if (status === "offline") return { label: "OFFLINE", color: "var(--status-critical)" };
+  if (status === "degraded") return { label: "DEGRADED", color: "var(--status-warning)" };
+  return { label: "HEALTHY", color: "var(--status-success)" };
+}
+
 export function SystemHealth() {
   const state = useAppState();
 
@@ -21,20 +27,15 @@ export function SystemHealth() {
       {ORDER.map((id) => {
         const h = state.health[id];
         const cls = meterClass(h);
+        const st = statusText(h.status);
         return (
           <div key={id} className="health-item">
             <div className="health-row">
               <span className="health-name">{ENTITY_LABELS[id]}</span>
               <span className="health-status">
-                {h.status === "offline" ? (
-                  <span className="status-text" style={{ color: "var(--status-critical)" }}>
-                    OFFLINE
-                  </span>
-                ) : (
-                  <span className="status-text" style={{ color: "var(--status-success)" }}>
-                    HEALTHY
-                  </span>
-                )}
+                <span className="status-text" style={{ color: st.color }}>
+                  {st.label}
+                </span>
               </span>
             </div>
             <div className="meter-row">

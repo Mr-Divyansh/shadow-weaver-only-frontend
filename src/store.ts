@@ -106,6 +106,7 @@ class Store {
   private state: AppState = initialState;
   private listeners = new Set<Listener>();
   private demoSimInterval: ReturnType<typeof setTimeout> | null = null;
+  private eventIdCounter = 0;
 
   getState(): AppState {
     return this.state;
@@ -136,7 +137,8 @@ class Store {
   }
 
   appendEvent(event: ShadowEvent) {
-    const events = [...this.state.events, event].slice(-500);
+    const stamped = { ...event, id: event.id ?? ++this.eventIdCounter };
+    const events = [...this.state.events, stamped].slice(-500);
     this.setState({ events });
   }
 
