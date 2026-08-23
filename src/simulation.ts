@@ -46,6 +46,9 @@ class MockProvider implements DataProvider {
   private timers: ReturnType<typeof setTimeout>[] = [];
   private healthInterval: ReturnType<typeof setInterval> | null = null;
   private trafficInterval: ReturnType<typeof setInterval> | null = null;
+  // Random-walk state so the traffic line flows smoothly instead of jumping
+  // to a brand-new random value every tick.
+  private trafficLevel = 45;
 
   private emit(e: ShadowEvent) {
     this.callbacks?.onEvent(e, Date.now());
@@ -54,7 +57,12 @@ class MockProvider implements DataProvider {
   private traffic(): TrafficMetric {
     const state = store.getState();
     const underAttack = state.topology.attackActive;
-    const spike = underAttack ? 500 + Math.random() * 1200 : 20 + Math.random() * 80;
+    const target = underAttack ? 900 + Math.random() * 700 : 35 + Math.random() * 45;
+    // Ease toward the target level each tick, with small jitter on top —
+    // produces a natural-looking, gently flowing line instead of noise.
+    this.trafficLevel += (target - this.trafficLevel) * 0.35 + (Math.random() - 0.5) * 8;
+    this.trafficLevel = Math.max(5, this.trafficLevel);
+    const spike = this.trafficLevel;
     return {
       type: "traffic_metric",
       timestamp: now(),
