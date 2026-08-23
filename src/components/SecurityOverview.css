@@ -45,6 +45,22 @@
   color: var(--status-critical);
 }
 
+.metric-success {
+  border-color: var(--status-success);
+}
+
+.metric-success .metric-value {
+  color: var(--status-success);
+}
+
+.metric-accent {
+  border-color: var(--accent-primary);
+}
+
+.metric-accent .metric-value {
+  color: var(--accent-primary);
+}
+
 @media (max-width: 1199px) {
   .security-overview {
     grid-template-columns: repeat(3, 1fr);
